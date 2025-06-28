@@ -1,39 +1,84 @@
-import Header from "./Header";
-import { useState, useEffect } from "react";
-import { Outlet } from "react-router-dom";
-import NavBar from "./NavBar";
+import Header from './Header';
+import { useState, useEffect } from 'react';
+import { Outlet } from 'react-router-dom';
+import NavBar from './NavBar';
 
-function App(){
+function App() {
+  const [hotels, setHotels] = useState([]);
 
-    const [hotels, setHotels] = useState([])
+  useEffect(() => {
+    fetch('/hotels')
+      .then((r) => r.json())
+      .then((r) => setHotels(r));
+  }, []);
 
-    useEffect(() => {
-        // GET request - Write the code to retrieve all hotels and update the 'hotels' state with the hotel data.
-    }, [])
+  function addHotel(newHotel) {
+    fetch('/hotels', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'Application/JSON',
+      },
+      body: JSON.stringify(newHotel),
+    })
+      .then((r) => r.json())
+      .then((r) => setHotels([...hotels, r]));
+  }
 
-    function addHotel(newHotel){
-        // POST request - Write the code to create a new hotel and update the 'hotels' state to add the new hotel to the state.
-        // newHotel - contains an object with the new hotel data for the POST request.
-    }
+  function updateHotel(id, hotelDataForUpdate) {
+    fetch(`/hotels/${id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'Application/JSON',
+      },
+      body: JSON.stringify(hotelDataForUpdate),
+    })
+      .then((res) => {
+        if (res.ok) {
+          return res.json();
+        } else {
+          alert(
+            'An unexpected error occurred. Unable to process your request.'
+          );
+        }
+      })
+      .then((hotelUpdate) => {
+        const newHotelList = hotels.map((h) =>
+          h.id === id ? { ...h, ...hotelUpdate } : h
+        );
+        setHotels(newHotelList);
+      });
+  }
 
-    function updateHotel(id, hotelDataForUpdate){
-        // PATCH request - Write the code to update a hotel by id and update the 'hotels' state with the updated hotel data.
-        // id - contains a number that refers to the id for the hotel that should be updated.
-        // hotelDataForUpdate - contains an object with the hotel data for the PATCH request.
-    }
+  function deleteHotel(id) {
+    fetch(`/hotels/${id}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'Application/JSON' },
+    }).then((res) => {
+      if (res.ok) {
+        const newHotelList = hotels.filter((h) => h.id != id);
+        setHotels(newHotelList);
+      } else if (res.status === 400) {
+        res.json().then((errorData) => alert(`ERROR: ${errorData.error}`));
+      } else {
+        alert('An unexpected error occurred. Unable to process your request.');
+      }
+    });
+  }
 
-    function deleteHotel(id){
-        // DELETE request - Write the code to delete a hotel by id and update the 'hotels' state to remove the hotel from the state.
-        // id - contains a number that refers to the id for the hotel that should be deleted.
-    }
-
-    return (
-      <div className="app">
-        <NavBar/>
-        <Header/>
-        <Outlet context={{hotels: hotels, addHotel: addHotel, deleteHotel: deleteHotel, updateHotel: updateHotel}}/>
-      </div>
-    );
+  return (
+    <div className='app'>
+      <NavBar />
+      <Header />
+      <Outlet
+        context={{
+          hotels: hotels,
+          addHotel: addHotel,
+          deleteHotel: deleteHotel,
+          updateHotel: updateHotel,
+        }}
+      />
+    </div>
+  );
 }
 
 export default App;
