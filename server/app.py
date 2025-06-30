@@ -9,6 +9,7 @@ from flask_cors import CORS
 from models import db, Hotel, Customer, Review
 
 app = Flask(__name__)
+app.secret_key = b'H\xb0l\x10Y\xcb\xdf^\xfa\xd8\xd5\xeaq\xaf\xb1\x12'
 
 # configure a database connection to the local file examples.db
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///hotels.db'
@@ -268,6 +269,54 @@ class ReviewByID(Resource):
             return make_response(response_body, 404)
 
 api.add_resource(ReviewByID, '/reviews/<int:id>')
+
+
+class Login(Resource):
+    
+    def post(self):
+        username = request.json.get('username')
+        customer = Customer.query.filter(Customer.username == username).first()
+        
+        if not customer:
+            return make_response({'message': 'Invalid username.'}, 401)
+        
+        session['customer_id'] = customer.id
+        response_body = customer.to_dict(rules=('-reviews.hotel', '-reviews.customer'))
+
+        # Add in the association proxy data (The customer's hotels)
+        response_body['hotels'] = [hotel.to_dict(only=('id', 'name', 'image')) for hotel in set(customer.hotels)]
+            
+        return make_response(response_body, 201)
+    
+api.add_resource(Login, '/login')
+
+class CheckSession(Resource):
+    
+    def get(self):
+        customer = db.session.get(Customer, session.get('customer_id'))
+        
+        if not customer:
+            return make_response({'message': 'Please login.'}, 401)
+        
+        session['customer_id'] = customer.id
+        response_body = customer.to_dict(rules=('-reviews.hotel', '-reviews.customer'))
+
+        # Add in the association proxy data (The customer's hotels)
+        response_body['hotels'] = [hotel.to_dict(only=('id', 'name', 'image')) for hotel in set(customer.hotels)]
+            
+        return make_response(response_body, 200)
+    
+api.add_resource(CheckSession, '/check_session')
+
+class Logout(Resource):
+    
+    def delete(self):
+        if session.get('customer_id'):
+            del(session['customer_id'])
+            
+        return {}, 204
+
+api.add_resource(Logout, '/logout')
 
 if __name__ == "__main__":
     app.run(port=7777, debug=True)
